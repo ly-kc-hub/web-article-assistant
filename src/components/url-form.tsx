@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 
-import { uiText, type Locale } from "@/lib/i18n";
-import type { ExtractResponse } from "@/types/extract";
+import { getSummaryLengthLabel, summaryLengthOptions, uiText, type Locale } from "@/lib/i18n";
+import type { ExtractResponse, SummaryLength } from "@/types/extract";
 
 interface UrlFormProps {
   locale: Locale;
   url: string;
+  summaryLength: SummaryLength;
   onUrlChange: (value: string) => void;
+  onSummaryLengthChange: (value: SummaryLength) => void;
   onResult: (result: ExtractResponse | null) => void;
   onSuccess?: (result: ExtractResponse) => void;
 }
@@ -16,7 +18,9 @@ interface UrlFormProps {
 export function UrlForm({
   locale,
   url,
+  summaryLength,
   onUrlChange,
+  onSummaryLengthChange,
   onResult,
   onSuccess,
 }: UrlFormProps) {
@@ -36,7 +40,7 @@ export function UrlForm({
         headers: {
           "content-type": "application/json",
         },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, summaryLength }),
       });
 
       const result = (await response.json()) as ExtractResponse;
@@ -74,6 +78,29 @@ export function UrlForm({
           className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200"
         />
       </label>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-medium text-zinc-700">{t.summaryLengthLabel}</span>
+          <span className="text-xs text-zinc-500">{t.summaryLengthHint}</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {summaryLengthOptions.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => onSummaryLengthChange(item)}
+              className={`rounded-full px-3 py-2 text-xs font-medium transition ${
+                summaryLength === item
+                  ? "bg-zinc-950 text-white"
+                  : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-100"
+              }`}
+            >
+              {getSummaryLengthLabel(locale, item)}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="flex items-center gap-3">
         <button

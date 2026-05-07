@@ -20,6 +20,7 @@ const article: ExtractSuccessResponse["data"] = {
   summary: "This article explains the main idea.",
   bullets: ["Point one", "Point two"],
   method: "fallback",
+  summaryLength: "medium",
 };
 
 describe("exporters", () => {

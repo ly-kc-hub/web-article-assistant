@@ -2,12 +2,13 @@ import "server-only";
 
 import OpenAI from "openai";
 
-import type { ArticleMetadata, SummaryMethod } from "@/types/extract";
+import type { ArticleMetadata, SummaryLength, SummaryMethod } from "@/types/extract";
 
 interface SummaryResult {
   summary: string;
   bullets: string[];
   method: SummaryMethod;
+  summaryLength: SummaryLength;
 }
 
 const deepseek = process.env.DEEPSEEK_API_KEY
@@ -36,13 +37,46 @@ function extractJsonObject(text: string): string | null {
   return match ? match[0] : null;
 }
 
-function fallbackSummary(article: ArticleMetadata): SummaryResult {
+function getSummaryConfig(summaryLength: SummaryLength) {
+  if (summaryLength === "short") {
+    return {
+      sentenceCount: 1,
+      bulletCount: 3,
+      promptSummary: "summary must be exactly 1 concise sentence when possible.",
+      promptBullets: "bullets must contain exactly 3 concise key points when possible.",
+    };
+  }
+
+  if (summaryLength === "long") {
+    return {
+      sentenceCount: 4,
+      bulletCount: 5,
+      promptSummary: "summary must be exactly 4 concise sentences when possible.",
+      promptBullets: "bullets must contain exactly 5 concise key points when possible.",
+    };
+  }
+
+  return {
+    sentenceCount: 2,
+    bulletCount: 3,
+    promptSummary: "summary must be exactly 2 concise sentences when possible.",
+    promptBullets: "bullets must contain exactly 3 concise key points when possible.",
+  };
+}
+
+function fallbackSummary(
+  article: ArticleMetadata,
+  summaryLength: SummaryLength,
+): SummaryResult {
   const sentences = splitSentences(article.textContent);
-  const bullets = sentences.filter((item) => item.length >= 24).slice(0, 3);
+  const config = getSummaryConfig(summaryLength);
+  const bullets = sentences
+    .filter((item) => item.length >= 24)
+    .slice(0, config.bulletCount);
 
   return {
     summary:
-      sentences.slice(0, 2).join(" ") ||
+      sentences.slice(0, config.sentenceCount).join(" ") ||
       article.excerpt ||
       "The article content was extracted, but there was not enough text to summarize further.",
     bullets:
@@ -50,16 +84,19 @@ function fallbackSummary(article: ArticleMetadata): SummaryResult {
         ? bullets
         : [article.excerpt || "No excerpt was available for this article."],
     method: "fallback",
+    summaryLength,
   };
 }
 
 async function summarizeWithDeepSeek(
   article: ArticleMetadata,
+  summaryLength: SummaryLength,
 ): Promise<SummaryResult | null> {
   if (!deepseek) {
     return null;
   }
 
+  const config = getSummaryConfig(summaryLength);
   const input = [
     `Title: ${article.title}`,
     article.byline ? `Author: ${article.byline}` : "",
@@ -67,8 +104,8 @@ async function summarizeWithDeepSeek(
     article.publishedTime ? `Published: ${article.publishedTime}` : "",
     "",
     "Return strict JSON with keys summary and bullets.",
-    "summary must be exactly 2 concise sentences when possible.",
-    "bullets must contain exactly 3 concise key points when possible.",
+    config.promptSummary,
+    config.promptBullets,
     "Do not include markdown.",
     "",
     article.textContent.slice(0, 12000),
@@ -112,7 +149,7 @@ async function summarizeWithDeepSeek(
     const bullets = (parsed.bullets ?? [])
       .map((item) => normalizeBullet(item))
       .filter((item): item is string => Boolean(item))
-      .slice(0, 3);
+      .slice(0, config.bulletCount);
 
     if (!summary || bullets.length === 0) {
       return null;
@@ -122,6 +159,7 @@ async function summarizeWithDeepSeek(
       summary,
       bullets,
       method: "deepseek",
+      summaryLength,
     };
   } catch {
     return null;
@@ -130,9 +168,10 @@ async function summarizeWithDeepSeek(
 
 export async function summarizeArticle(
   article: ArticleMetadata,
+  summaryLength: SummaryLength = "medium",
 ): Promise<SummaryResult> {
-  const modelResult = await summarizeWithDeepSeek(article);
-  return modelResult ?? fallbackSummary(article);
+  const modelResult = await summarizeWithDeepSeek(article, summaryLength);
+  return modelResult ?? fallbackSummary(article, summaryLength);
 }
 
 function fallbackAnswer(article: ArticleMetadata, question: string): {

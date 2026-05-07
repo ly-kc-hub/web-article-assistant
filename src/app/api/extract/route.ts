@@ -3,9 +3,17 @@ import { NextResponse } from "next/server";
 import { extractArticle, ExtractorError } from "@/lib/extractor";
 import { summarizeArticle } from "@/lib/summarizer";
 import { normalizeUrl } from "@/lib/validators";
-import type { ExtractRequest, ExtractResponse } from "@/types/extract";
+import type { ExtractRequest, ExtractResponse, SummaryLength } from "@/types/extract";
 
 export const runtime = "nodejs";
+
+function normalizeSummaryLength(value: string | undefined): SummaryLength {
+  if (value === "short" || value === "long") {
+    return value;
+  }
+
+  return "medium";
+}
 
 export async function POST(request: Request) {
   let body: ExtractRequest;
@@ -42,7 +50,10 @@ export async function POST(request: Request) {
 
   try {
     const article = await extractArticle(normalizedUrl);
-    const summary = await summarizeArticle(article);
+    const summary = await summarizeArticle(
+      article,
+      normalizeSummaryLength(body.summaryLength),
+    );
 
     return NextResponse.json<ExtractResponse>({
       ok: true,

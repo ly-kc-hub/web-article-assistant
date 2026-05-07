@@ -5,7 +5,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import { ResultCard } from "@/components/result-card";
 import { UrlForm } from "@/components/url-form";
 import { localeDateMap, localeLabels, uiText, type Locale } from "@/lib/i18n";
-import type { ExtractResponse, HistoryEntry } from "@/types/extract";
+import type { ExtractResponse, HistoryEntry, SummaryLength } from "@/types/extract";
 
 const STORAGE_KEY = "web-article-assistant-history";
 const HISTORY_LIMIT = 8;
@@ -61,6 +61,7 @@ function writeHistorySnapshot(history: HistoryEntry[]) {
 export function ArticleWorkbench() {
   const [locale, setLocale] = useState<Locale>("zh");
   const [url, setUrl] = useState("");
+  const [summaryLength, setSummaryLength] = useState<SummaryLength>("medium");
   const [result, setResult] = useState<ExtractResponse | null>(null);
   const t = uiText[locale];
   const historySnapshot = useSyncExternalStore(
@@ -159,7 +160,9 @@ export function ArticleWorkbench() {
               <UrlForm
                 locale={locale}
                 url={url}
+                summaryLength={summaryLength}
                 onUrlChange={setUrl}
+                onSummaryLengthChange={setSummaryLength}
                 onResult={handleResult}
                 onSuccess={handleSuccess}
               />
@@ -215,6 +218,7 @@ export function ArticleWorkbench() {
                     type="button"
                     onClick={() => {
                       setUrl(item.article.url);
+                      setSummaryLength(item.article.summaryLength ?? "medium");
                       setResult({ ok: true, data: item.article });
                     }}
                     className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-left transition hover:border-zinc-300 hover:bg-zinc-50"

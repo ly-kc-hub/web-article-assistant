@@ -1,3 +1,5 @@
+import type { SummaryLength } from "@/types/extract";
+
 export type Locale = "zh" | "en";
 
 export const localeLabels: Record<Locale, string> = {
@@ -9,6 +11,8 @@ export const localeDateMap: Record<Locale, string> = {
   zh: "zh-CN",
   en: "en-US",
 };
+
+export const summaryLengthOptions: SummaryLength[] = ["short", "medium", "long"];
 
 export const exampleQuestions: Record<Locale, string[]> = {
   zh: [
@@ -38,6 +42,11 @@ export const uiText = {
     languageLabel: "语言",
     extractTitle: "提取文章",
     extractDescription: "输入文章链接，提取内容、生成摘要、导出结果，并继续追问。",
+    summaryLengthLabel: "摘要长度",
+    summaryLengthHint: "影响摘要句数和要点数量。",
+    summaryShort: "短",
+    summaryMedium: "中",
+    summaryLong: "长",
     suggestedInputs: "推荐输入",
     suggestedLong: "长篇博客、专栏、技术文章",
     suggestedNews: "可以直接看到正文的新闻分析页",
@@ -88,6 +97,12 @@ export const uiText = {
     previewCollapse: "收起正文",
     articleExpand: "展开可读正文",
     articleCollapse: "收起可读正文",
+    focusModeLabel: "结果视图",
+    focusModeAll: "完整结果",
+    focusModeCore: "只看核心要点",
+    focusModeHint: "核心模式只显示摘要和关键要点。",
+    methodLabel: "摘要来源",
+    lengthLabel: "摘要长度",
     unknown: "未知",
     sourceSeparator: "·",
     exportTitle: "标题",
@@ -116,6 +131,11 @@ export const uiText = {
     extractTitle: "Extract article",
     extractDescription:
       "Paste one article URL to extract content, summarize it, export it, and ask follow-up questions.",
+    summaryLengthLabel: "Summary length",
+    summaryLengthHint: "Changes the summary size and number of key points.",
+    summaryShort: "Short",
+    summaryMedium: "Medium",
+    summaryLong: "Long",
     suggestedInputs: "Suggested inputs",
     suggestedLong: "Long-form blog posts, essays, and technical articles",
     suggestedNews: "News analysis pages with visible article body",
@@ -170,6 +190,12 @@ export const uiText = {
     previewCollapse: "Collapse body",
     articleExpand: "Expand article",
     articleCollapse: "Collapse article",
+    focusModeLabel: "View mode",
+    focusModeAll: "Full result",
+    focusModeCore: "Core only",
+    focusModeHint: "Core mode keeps only the summary and key points visible.",
+    methodLabel: "Summary source",
+    lengthLabel: "Summary length",
     unknown: "Unknown",
     sourceSeparator: "·",
     exportTitle: "Title",
@@ -186,3 +212,20 @@ export const uiText = {
     exportNoExcerpt: "No excerpt available.",
   },
 } as const;
+
+export function getSummaryLengthLabel(
+  locale: Locale,
+  summaryLength: SummaryLength,
+): string {
+  const t = uiText[locale];
+
+  if (summaryLength === "short") {
+    return t.summaryShort;
+  }
+
+  if (summaryLength === "long") {
+    return t.summaryLong;
+  }
+
+  return t.summaryMedium;
+}

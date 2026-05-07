@@ -6,9 +6,11 @@ export type ExtractErrorCode =
   | "INVALID_REQUEST";
 
 export type SummaryMethod = "deepseek" | "fallback";
+export type SummaryLength = "short" | "medium" | "long";
 
 export interface ExtractRequest {
   url: string;
+  summaryLength?: SummaryLength;
 }
 
 export interface AskArticleRequest {
@@ -34,6 +36,7 @@ export interface ExtractSuccessResponse {
     summary: string;
     bullets: string[];
     method: SummaryMethod;
+    summaryLength: SummaryLength;
   };
 }
 
