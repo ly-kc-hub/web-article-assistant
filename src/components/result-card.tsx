@@ -8,18 +8,15 @@ import {
   buildTextExport,
   downloadTextFile,
 } from "@/lib/exporters";
+import { exampleQuestions, uiText, type Locale } from "@/lib/i18n";
 import type { AskArticleResponse, ExtractResponse } from "@/types/extract";
 
 interface ResultCardProps {
+  locale: Locale;
   result: ExtractResponse | null;
 }
 
-const EXAMPLE_QUESTIONS = [
-  "What is the core argument of this article?",
-  "What evidence or examples does the author use?",
-  "What conclusion does the article reach?",
-  "What are the main risks or tradeoffs discussed?",
-];
+const PREVIEW_LIMIT = 800;
 
 function sanitizeArticleHtml(html: string): string {
   if (typeof window === "undefined") {
@@ -60,38 +57,40 @@ async function copyText(value: string) {
   await navigator.clipboard.writeText(value);
 }
 
-export function ResultCard({ result }: ResultCardProps) {
+export function ResultCard({ locale, result }: ResultCardProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [qaAnswer, setQaAnswer] = useState<AskArticleResponse | null>(null);
   const [isAsking, setIsAsking] = useState(false);
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
+  const [isArticleExpanded, setIsArticleExpanded] = useState(false);
+  const t = uiText[locale];
   const article = result?.ok ? result.data : null;
   const sanitizedHtml = useMemo(
     () => (article ? sanitizeArticleHtml(article.content) : ""),
     [article],
   );
+  const previewText = article?.textContent ?? "";
+  const preview = isPreviewExpanded
+    ? previewText
+    : previewText.slice(0, PREVIEW_LIMIT);
+  const hasLongPreview = previewText.length > PREVIEW_LIMIT;
 
   if (!result) {
     return (
       <section className="rounded-3xl border border-dashed border-zinc-300 bg-zinc-50 p-6">
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-zinc-900">Ready for an article</h2>
-          <p className="text-sm leading-7 text-zinc-500">
-            Submit one article URL to unlock summary, key points, readable content, exports, and single-turn QA.
-          </p>
+          <h2 className="text-lg font-semibold text-zinc-900">{t.emptyTitle}</h2>
+          <p className="text-sm leading-7 text-zinc-500">{t.emptyDescription}</p>
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-200">
-            <p className="text-sm font-medium text-zinc-900">After extraction</p>
-            <p className="mt-2 text-sm leading-7 text-zinc-500">
-              Review metadata, summary, readable article HTML, and export actions.
-            </p>
+            <p className="text-sm font-medium text-zinc-900">{t.emptyAfter}</p>
+            <p className="mt-2 text-sm leading-7 text-zinc-500">{t.emptyAfterDesc}</p>
           </div>
           <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-200">
-            <p className="text-sm font-medium text-zinc-900">Then ask questions</p>
-            <p className="mt-2 text-sm leading-7 text-zinc-500">
-              Ask one focused question against the extracted article content.
-            </p>
+            <p className="text-sm font-medium text-zinc-900">{t.emptyAsk}</p>
+            <p className="mt-2 text-sm leading-7 text-zinc-500">{t.emptyAskDesc}</p>
           </div>
         </div>
       </section>
@@ -106,11 +105,11 @@ export function ResultCard({ result }: ResultCardProps) {
           <p className="text-sm leading-7 text-red-700">{result.error.message}</p>
         </div>
         <div className="mt-4 rounded-2xl bg-white/70 p-4 text-sm text-red-700">
-          <p className="font-medium">What to try next</p>
+          <p className="font-medium">{t.errorNext}</p>
           <ul className="mt-2 space-y-2">
-            <li>• Check that the URL opens in a normal browser.</li>
-            <li>• Try a public article page instead of a login-only page.</li>
-            <li>• If the page is JS-rendered, ensure `Playwright` Chromium is installed.</li>
+            <li>- {t.errorTryOpen}</li>
+            <li>- {t.errorTryPublic}</li>
+            <li>- {t.errorTryPlaywright}</li>
           </ul>
         </div>
       </section>
@@ -134,7 +133,7 @@ export function ResultCard({ result }: ResultCardProps) {
 
   function handleDownloadMarkdown() {
     downloadTextFile(
-      buildMarkdownExport(articleData),
+      buildMarkdownExport(articleData, locale),
       buildExportFilename(articleData, "md"),
       "text/markdown;charset=utf-8",
     );
@@ -142,7 +141,7 @@ export function ResultCard({ result }: ResultCardProps) {
 
   function handleDownloadText() {
     downloadTextFile(
-      buildTextExport(articleData),
+      buildTextExport(articleData, locale),
       buildExportFilename(articleData, "txt"),
       "text/plain;charset=utf-8",
     );
@@ -184,7 +183,7 @@ export function ResultCard({ result }: ResultCardProps) {
         ok: false,
         error: {
           code: "SUMMARIZATION_FAILED",
-          message: "The question request failed before the server returned a response.",
+          message: t.requestFailed,
         },
       });
     } finally {
@@ -197,8 +196,16 @@ export function ResultCard({ result }: ResultCardProps) {
       <header className="space-y-4">
         <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
           {articleData.siteName ? <span>{articleData.siteName}</span> : null}
-          {articleData.byline ? <span>· {articleData.byline}</span> : null}
-          {articleData.publishedTime ? <span>· {articleData.publishedTime}</span> : null}
+          {articleData.byline ? (
+            <span>
+              {t.sourceSeparator} {articleData.byline}
+            </span>
+          ) : null}
+          {articleData.publishedTime ? (
+            <span>
+              {t.sourceSeparator} {articleData.publishedTime}
+            </span>
+          ) : null}
           <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-700">
             {articleData.method}
           </span>
@@ -224,55 +231,53 @@ export function ResultCard({ result }: ResultCardProps) {
           onClick={() => handleCopy("summary", articleData.summary)}
           className="rounded-full border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50"
         >
-          {copiedKey === "summary" ? "Summary copied" : "Copy summary"}
+          {copiedKey === "summary" ? t.copySummaryDone : t.copySummary}
         </button>
         <button
           type="button"
           onClick={() => handleCopy("bullets", articleData.bullets.join("\n"))}
           className="rounded-full border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50"
         >
-          {copiedKey === "bullets" ? "Key points copied" : "Copy key points"}
+          {copiedKey === "bullets" ? t.copyBulletsDone : t.copyBullets}
         </button>
         <button
           type="button"
           onClick={() => handleCopy("text", articleData.textContent)}
           className="rounded-full border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50"
         >
-          {copiedKey === "text" ? "Text copied" : "Copy full text"}
+          {copiedKey === "text" ? t.copyTextDone : t.copyText}
         </button>
         <button
           type="button"
           onClick={handleDownloadMarkdown}
           className="rounded-full border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50"
         >
-          Download Markdown
+          {t.downloadMd}
         </button>
         <button
           type="button"
           onClick={handleDownloadText}
           className="rounded-full border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50"
         >
-          Download TXT
+          {t.downloadTxt}
         </button>
       </div>
 
       <section className="rounded-2xl bg-zinc-50 p-5">
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-zinc-950">Ask this article</h3>
+            <h3 className="text-sm font-semibold text-zinc-950">{t.askTitle}</h3>
             {qaAnswer?.ok ? (
               <span className="rounded-full bg-white px-2.5 py-1 text-xs text-zinc-500 ring-1 ring-zinc-200">
-                Answered with {qaAnswer.data.method}
+                {t.answeredWith} {qaAnswer.data.method}
               </span>
             ) : null}
           </div>
-          <p className="text-sm leading-7 text-zinc-600">
-            Ask one focused question against the currently extracted article.
-          </p>
+          <p className="text-sm leading-7 text-zinc-600">{t.askDescription}</p>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {EXAMPLE_QUESTIONS.map((item) => (
+          {exampleQuestions[locale].map((item) => (
             <button
               key={item}
               type="button"
@@ -288,7 +293,7 @@ export function ResultCard({ result }: ResultCardProps) {
           <textarea
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
-            placeholder="What is the core argument of this article?"
+            placeholder={t.askPlaceholder}
             rows={3}
             className="w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-950 shadow-sm outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200"
           />
@@ -298,11 +303,9 @@ export function ResultCard({ result }: ResultCardProps) {
               disabled={isAsking || !question.trim()}
               className="inline-flex min-w-28 items-center justify-center rounded-2xl bg-zinc-950 px-4 py-3 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
             >
-              {isAsking ? "Answering..." : "Ask question"}
+              {isAsking ? t.askSubmitting : t.askSubmit}
             </button>
-            <span className="text-xs text-zinc-500">
-              Keep questions specific for better grounded answers.
-            </span>
+            <span className="text-xs text-zinc-500">{t.askHint}</span>
           </div>
         </form>
 
@@ -321,22 +324,20 @@ export function ResultCard({ result }: ResultCardProps) {
           )
         ) : (
           <div className="mt-4 rounded-2xl border border-dashed border-zinc-200 bg-white/80 p-4 text-sm text-zinc-500">
-            Ask a question after extraction to test the article QA flow.
+            {t.askEmpty}
           </div>
         )}
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
         <div className="space-y-4">
           <div className="rounded-2xl bg-zinc-50 p-4">
-            <h3 className="text-sm font-semibold text-zinc-950">Summary</h3>
-            <p className="mt-2 text-sm leading-7 text-zinc-700">
-              {articleData.summary}
-            </p>
+            <h3 className="text-sm font-semibold text-zinc-950">{t.summaryTitle}</h3>
+            <p className="mt-2 text-sm leading-7 text-zinc-700">{articleData.summary}</p>
           </div>
 
           <div className="rounded-2xl bg-zinc-50 p-4">
-            <h3 className="text-sm font-semibold text-zinc-950">Key points</h3>
+            <h3 className="text-sm font-semibold text-zinc-950">{t.bulletsTitle}</h3>
             <ul className="mt-2 space-y-2 text-sm leading-7 text-zinc-700">
               {articleData.bullets.map((bullet) => (
                 <li key={bullet}>- {bullet}</li>
@@ -347,26 +348,48 @@ export function ResultCard({ result }: ResultCardProps) {
 
         <div className="space-y-4">
           <div className="rounded-2xl bg-zinc-50 p-4">
-            <h3 className="text-sm font-semibold text-zinc-950">Excerpt</h3>
+            <h3 className="text-sm font-semibold text-zinc-950">{t.excerptTitle}</h3>
             <p className="mt-2 text-sm leading-7 text-zinc-700">
-              {articleData.excerpt || "No excerpt was detected for this article."}
+              {articleData.excerpt || t.excerptEmpty}
             </p>
           </div>
 
           <div className="rounded-2xl bg-zinc-50 p-4">
-            <h3 className="text-sm font-semibold text-zinc-950">Readable article</h3>
-            <div
-              className="prose prose-zinc mt-3 max-w-none text-sm leading-7"
-              dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-            />
-          </div>
-
-          <div className="rounded-2xl bg-zinc-50 p-4">
-            <h3 className="text-sm font-semibold text-zinc-950">Body preview</h3>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-zinc-950">{t.previewTitle}</h3>
+              {hasLongPreview ? (
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewExpanded((current) => !current)}
+                  className="text-xs font-medium text-zinc-500 transition hover:text-zinc-900"
+                >
+                  {isPreviewExpanded ? t.previewCollapse : t.previewExpand}
+                </button>
+              ) : null}
+            </div>
             <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-zinc-700">
-              {articleData.textContent.slice(0, 2000)}
-              {articleData.textContent.length > 2000 ? "..." : ""}
+              {preview}
+              {!isPreviewExpanded && hasLongPreview ? "..." : ""}
             </p>
+          </div>
+
+          <div className="rounded-2xl bg-zinc-50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-zinc-950">{t.articleTitle}</h3>
+              <button
+                type="button"
+                onClick={() => setIsArticleExpanded((current) => !current)}
+                className="text-xs font-medium text-zinc-500 transition hover:text-zinc-900"
+              >
+                {isArticleExpanded ? t.articleCollapse : t.articleExpand}
+              </button>
+            </div>
+            {isArticleExpanded ? (
+              <div
+                className="prose prose-zinc mt-3 max-w-none text-sm leading-7"
+                dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+              />
+            ) : null}
           </div>
         </div>
       </div>

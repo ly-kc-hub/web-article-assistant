@@ -1,3 +1,4 @@
+import { uiText, type Locale } from "@/lib/i18n";
 import type { ExtractSuccessResponse } from "@/types/extract";
 
 type ArticleData = ExtractSuccessResponse["data"];
@@ -14,65 +15,71 @@ function slugify(value: string): string {
     .slice(0, 80) || "article";
 }
 
-function buildMetaLines(article: ArticleData): string[] {
+function buildMetaLines(article: ArticleData, locale: Locale = "en"): string[] {
+  const t = uiText[locale];
   return [
-    `Title: ${article.title}`,
-    `URL: ${article.url}`,
-    `Source: ${safeText(article.siteName) || "Unknown"}`,
-    `Author: ${safeText(article.byline) || "Unknown"}`,
-    `Published: ${safeText(article.publishedTime) || "Unknown"}`,
-    `Language: ${safeText(article.lang) || "Unknown"}`,
-    `Summary Method: ${article.method}`,
+    `${t.exportTitle}: ${article.title}`,
+    `${t.exportUrl}: ${article.url}`,
+    `${t.exportSource}: ${safeText(article.siteName) || t.unknown}`,
+    `${t.exportAuthor}: ${safeText(article.byline) || t.unknown}`,
+    `${t.exportPublished}: ${safeText(article.publishedTime) || t.unknown}`,
+    `${t.exportLanguage}: ${safeText(article.lang) || t.unknown}`,
+    `${t.exportMethod}: ${article.method}`,
   ];
 }
 
-export function buildMarkdownExport(article: ArticleData): string {
+export function buildMarkdownExport(
+  article: ArticleData,
+  locale: Locale = "en",
+): string {
+  const t = uiText[locale];
   const bullets = article.bullets.map((item) => `- ${item}`).join("\n");
 
   return [
     `# ${article.title}`,
     "",
-    ...buildMetaLines(article).map((line) => `- ${line}`),
+    ...buildMetaLines(article, locale).map((line) => `- ${line}`),
     "",
-    "## Summary",
+    `## ${t.exportSummary}`,
     "",
     article.summary,
     "",
-    "## Key Points",
+    `## ${t.exportKeyPoints}`,
     "",
     bullets,
     "",
-    "## Excerpt",
+    `## ${t.exportExcerpt}`,
     "",
-    article.excerpt || "No excerpt available.",
+    article.excerpt || t.exportNoExcerpt,
     "",
-    "## Full Text",
+    `## ${t.exportFullText}`,
     "",
     article.textContent,
     "",
   ].join("\n");
 }
 
-export function buildTextExport(article: ArticleData): string {
+export function buildTextExport(article: ArticleData, locale: Locale = "en"): string {
+  const t = uiText[locale];
   return [
     article.title,
     "=".repeat(article.title.length),
     "",
-    ...buildMetaLines(article),
+    ...buildMetaLines(article, locale),
     "",
-    "SUMMARY",
+    t.exportSummary.toUpperCase(),
     "-------",
     article.summary,
     "",
-    "KEY POINTS",
+    t.exportKeyPoints.toUpperCase(),
     "----------",
     ...article.bullets.map((item, index) => `${index + 1}. ${item}`),
     "",
-    "EXCERPT",
+    t.exportExcerpt.toUpperCase(),
     "-------",
-    article.excerpt || "No excerpt available.",
+    article.excerpt || t.exportNoExcerpt,
     "",
-    "FULL TEXT",
+    t.exportFullText.toUpperCase(),
     "---------",
     article.textContent,
     "",

@@ -4,6 +4,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 
 import { ResultCard } from "@/components/result-card";
 import { UrlForm } from "@/components/url-form";
+import { localeDateMap, localeLabels, uiText, type Locale } from "@/lib/i18n";
 import type { ExtractResponse, HistoryEntry } from "@/types/extract";
 
 const STORAGE_KEY = "web-article-assistant-history";
@@ -58,8 +59,10 @@ function writeHistorySnapshot(history: HistoryEntry[]) {
 }
 
 export function ArticleWorkbench() {
+  const [locale, setLocale] = useState<Locale>("zh");
   const [url, setUrl] = useState("");
   const [result, setResult] = useState<ExtractResponse | null>(null);
+  const t = uiText[locale];
   const historySnapshot = useSyncExternalStore(
     subscribeHistory,
     readHistorySnapshot,
@@ -100,97 +103,144 @@ export function ArticleWorkbench() {
   const hasHistory = historyItems.length > 0;
 
   return (
-    <section className="grid gap-6 xl:grid-cols-[400px_1fr]">
-      <div className="space-y-6">
-        <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-zinc-950">Extract article</h2>
-          <p className="mt-2 text-sm leading-7 text-zinc-600">
-            Paste one article URL to extract content, summarize it, export it, and ask follow-up questions.
-          </p>
-          <div className="mt-6">
-            <UrlForm
-              url={url}
-              onUrlChange={setUrl}
-              onResult={handleResult}
-              onSuccess={handleSuccess}
-            />
+    <section className="space-y-8">
+      <section className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="inline-flex rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-600 shadow-sm">
+            {t.badge}
           </div>
-          <div className="mt-5 rounded-2xl bg-zinc-50 p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Suggested inputs
-            </p>
-            <ul className="mt-3 space-y-2 text-sm text-zinc-600">
-              <li>• Long-form blog posts and essays</li>
-              <li>• News analysis pages with visible article body</li>
-              <li>• JS-rendered article pages if Playwright is installed</li>
-            </ul>
-          </div>
-          <div className="mt-5 rounded-2xl border border-zinc-200 p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Demo URLs verified in this environment
-            </p>
-            <div className="mt-3 space-y-2">
-              {DEMO_URLS.map((demoUrl) => (
-                <button
-                  key={demoUrl}
-                  type="button"
-                  onClick={() => setUrl(demoUrl)}
-                  className="block w-full rounded-xl bg-zinc-50 px-3 py-2 text-left text-xs text-zinc-600 transition hover:bg-zinc-100"
-                >
-                  {demoUrl}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-base font-semibold text-zinc-950">Recent history</h3>
-            {hasHistory ? (
+          <div className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white p-1 shadow-sm">
+            <span className="px-2 text-xs font-medium text-zinc-500">{t.languageLabel}</span>
+            {(Object.keys(localeLabels) as Locale[]).map((item) => (
               <button
+                key={item}
                 type="button"
-                onClick={() => writeHistorySnapshot([])}
-                className="text-xs font-medium text-zinc-500 transition hover:text-zinc-900"
+                onClick={() => setLocale(item)}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  locale === item
+                    ? "bg-zinc-950 text-white"
+                    : "text-zinc-600 hover:bg-zinc-100"
+                }`}
               >
-                Clear
+                {localeLabels[item]}
               </button>
-            ) : null}
+            ))}
+          </div>
+        </div>
+
+        <div className="max-w-4xl space-y-4">
+          <h1 className="text-4xl font-semibold tracking-tight text-zinc-950 md:text-5xl">
+            {t.title}
+          </h1>
+          <p className="text-base leading-8 text-zinc-600 md:text-lg">{t.subtitle}</p>
+          <div className="flex flex-wrap gap-2 text-xs text-zinc-500">
+            <span className="rounded-full bg-white px-3 py-1 shadow-sm ring-1 ring-zinc-200">
+              {t.featureStatic}
+            </span>
+            <span className="rounded-full bg-white px-3 py-1 shadow-sm ring-1 ring-zinc-200">
+              {t.featureHistory}
+            </span>
+            <span className="rounded-full bg-white px-3 py-1 shadow-sm ring-1 ring-zinc-200">
+              {t.featureExport}
+            </span>
+            <span className="rounded-full bg-white px-3 py-1 shadow-sm ring-1 ring-zinc-200">
+              {t.featureQa}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[400px_1fr]">
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-zinc-950">{t.extractTitle}</h2>
+            <p className="mt-2 text-sm leading-7 text-zinc-600">{t.extractDescription}</p>
+            <div className="mt-6">
+              <UrlForm
+                locale={locale}
+                url={url}
+                onUrlChange={setUrl}
+                onResult={handleResult}
+                onSuccess={handleSuccess}
+              />
+            </div>
+            <div className="mt-5 rounded-2xl bg-zinc-50 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                {t.suggestedInputs}
+              </p>
+              <ul className="mt-3 space-y-2 text-sm text-zinc-600">
+                <li>- {t.suggestedLong}</li>
+                <li>- {t.suggestedNews}</li>
+                <li>- {t.suggestedJs}</li>
+              </ul>
+            </div>
+            <div className="mt-5 rounded-2xl border border-zinc-200 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                {t.demoUrls}
+              </p>
+              <div className="mt-3 space-y-2">
+                {DEMO_URLS.map((demoUrl) => (
+                  <button
+                    key={demoUrl}
+                    type="button"
+                    onClick={() => setUrl(demoUrl)}
+                    className="block w-full rounded-xl bg-zinc-50 px-3 py-2 text-left text-xs text-zinc-600 transition hover:bg-zinc-100"
+                  >
+                    {demoUrl}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {hasHistory ? (
-            <div className="mt-4 space-y-3">
-              {historyItems.map((item) => (
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-base font-semibold text-zinc-950">{t.historyTitle}</h3>
+              {hasHistory ? (
                 <button
-                  key={item.id}
                   type="button"
-                  onClick={() => {
-                    setUrl(item.article.url);
-                    setResult({ ok: true, data: item.article });
-                  }}
-                  className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-left transition hover:border-zinc-300 hover:bg-zinc-50"
+                  onClick={() => writeHistorySnapshot([])}
+                  className="text-xs font-medium text-zinc-500 transition hover:text-zinc-900"
                 >
-                  <p className="line-clamp-2 text-sm font-medium text-zinc-900">
-                    {item.article.title}
-                  </p>
-                  <p className="mt-1 line-clamp-1 text-xs text-zinc-500">
-                    {item.article.siteName || item.article.url}
-                  </p>
-                  <p className="mt-2 text-xs text-zinc-400">
-                    {new Date(item.savedAt).toLocaleString()}
-                  </p>
+                  {t.historyClear}
                 </button>
-              ))}
+              ) : null}
             </div>
-          ) : (
-            <div className="mt-4 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
-              No local history yet. Successful extractions are saved in this browser only.
-            </div>
-          )}
-        </div>
-      </div>
 
-      <ResultCard result={result} />
+            {hasHistory ? (
+              <div className="mt-4 space-y-3">
+                {historyItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setUrl(item.article.url);
+                      setResult({ ok: true, data: item.article });
+                    }}
+                    className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-left transition hover:border-zinc-300 hover:bg-zinc-50"
+                  >
+                    <p className="line-clamp-2 text-sm font-medium text-zinc-900">
+                      {item.article.title}
+                    </p>
+                    <p className="mt-1 line-clamp-1 text-xs text-zinc-500">
+                      {item.article.siteName || item.article.url}
+                    </p>
+                    <p className="mt-2 text-xs text-zinc-400">
+                      {new Date(item.savedAt).toLocaleString(localeDateMap[locale])}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                {t.historyEmpty}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <ResultCard locale={locale} result={result} />
+      </section>
     </section>
   );
 }
