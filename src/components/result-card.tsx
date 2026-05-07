@@ -14,11 +14,18 @@ import {
   uiText,
   type Locale,
 } from "@/lib/i18n";
-import type { AskArticleResponse, ExtractResponse } from "@/types/extract";
+import type {
+  AskArticleResponse,
+  ExtractResponse,
+  SummaryLength,
+} from "@/types/extract";
 
 interface ResultCardProps {
   locale: Locale;
   result: ExtractResponse | null;
+  summaryLength: SummaryLength;
+  shouldSuggestResync: boolean;
+  onResummarized: (result: ExtractResponse) => void;
 }
 
 type ViewMode = "all" | "core";
@@ -64,13 +71,20 @@ async function copyText(value: string) {
   await navigator.clipboard.writeText(value);
 }
 
-export function ResultCard({ locale, result }: ResultCardProps) {
+export function ResultCard({
+  locale,
+  result,
+  summaryLength,
+  shouldSuggestResync,
+  onResummarized,
+}: ResultCardProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [qaAnswer, setQaAnswer] = useState<AskArticleResponse | null>(null);
   const [isAsking, setIsAsking] = useState(false);
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
   const [isArticleExpanded, setIsArticleExpanded] = useState(false);
+  const [isResummarizing, setIsResummarizing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("all");
   const t = uiText[locale];
   const article = result?.ok ? result.data : null;
@@ -139,6 +153,29 @@ export function ResultCard({ locale, result }: ResultCardProps) {
     }
   }
 
+  async function handleResummarize() {
+    setIsResummarizing(true);
+
+    try {
+      const response = await fetch("/api/resummarize", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          article: articleData,
+          summaryLength,
+          outputLanguage: locale,
+        }),
+      });
+
+      const payload = (await response.json()) as ExtractResponse;
+      onResummarized(payload);
+    } finally {
+      setIsResummarizing(false);
+    }
+  }
+
   function handleDownloadMarkdown() {
     downloadTextFile(
       buildMarkdownExport(articleData, locale),
@@ -181,6 +218,7 @@ export function ResultCard({ locale, result }: ResultCardProps) {
         body: JSON.stringify({
           article: articleData,
           question: trimmed,
+          outputLanguage: locale,
         }),
       });
 
@@ -220,6 +258,9 @@ export function ResultCard({ locale, result }: ResultCardProps) {
           <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-700">
             {t.lengthLabel}: {getSummaryLengthLabel(locale, articleData.summaryLength)}
           </span>
+          <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-700">
+            {t.outputLanguageLabel}: {articleData.outputLanguage}
+          </span>
         </div>
         <div className="space-y-3">
           <h2 className="text-2xl font-semibold tracking-tight text-zinc-950">
@@ -235,6 +276,19 @@ export function ResultCard({ locale, result }: ResultCardProps) {
           </a>
         </div>
       </header>
+
+      {shouldSuggestResync ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <button
+            type="button"
+            onClick={handleResummarize}
+            disabled={isResummarizing}
+            className="rounded-full bg-amber-500 px-4 py-2 text-xs font-medium text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-300"
+          >
+            {isResummarizing ? t.refreshingSummary : t.refreshSummary}
+          </button>
+        </div>
+      ) : null}
 
       <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

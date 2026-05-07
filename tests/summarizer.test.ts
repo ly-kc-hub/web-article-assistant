@@ -28,6 +28,7 @@ describe("summarizeArticle", () => {
     const result = await summarizeArticle(article, "short");
 
     expect(result.summaryLength).toBe("short");
+    expect(result.outputLanguage).toBe("en");
     expect(result.bullets.length).toBeGreaterThan(0);
     expect(result.bullets.length).toBeLessThanOrEqual(3);
   });
@@ -36,6 +37,7 @@ describe("summarizeArticle", () => {
     const result = await summarizeArticle(article, "long");
 
     expect(result.summaryLength).toBe("long");
+    expect(result.outputLanguage).toBe("en");
     expect(result.bullets.length).toBeGreaterThan(0);
     expect(result.bullets.length).toBeLessThanOrEqual(5);
   });

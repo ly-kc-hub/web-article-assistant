@@ -2,13 +2,19 @@ import "server-only";
 
 import OpenAI from "openai";
 
-import type { ArticleMetadata, SummaryLength, SummaryMethod } from "@/types/extract";
+import type {
+  ArticleMetadata,
+  OutputLanguage,
+  SummaryLength,
+  SummaryMethod,
+} from "@/types/extract";
 
 interface SummaryResult {
   summary: string;
   bullets: string[];
   method: SummaryMethod;
   summaryLength: SummaryLength;
+  outputLanguage: OutputLanguage;
 }
 
 const deepseek = process.env.DEEPSEEK_API_KEY
@@ -64,15 +70,42 @@ function getSummaryConfig(summaryLength: SummaryLength) {
   };
 }
 
+function getOutputLanguageInstruction(outputLanguage: OutputLanguage) {
+  return outputLanguage === "zh"
+    ? "Write the summary and bullets in Simplified Chinese."
+    : "Write the summary and bullets in English.";
+}
+
+function getQuestionLanguageInstruction(outputLanguage: OutputLanguage) {
+  return outputLanguage === "zh"
+    ? "Answer in Simplified Chinese."
+    : "Answer in English.";
+}
+
 function fallbackSummary(
   article: ArticleMetadata,
   summaryLength: SummaryLength,
+  outputLanguage: OutputLanguage,
 ): SummaryResult {
   const sentences = splitSentences(article.textContent);
   const config = getSummaryConfig(summaryLength);
   const bullets = sentences
     .filter((item) => item.length >= 24)
     .slice(0, config.bulletCount);
+
+  if (outputLanguage === "zh") {
+    return {
+      summary:
+        sentences.slice(0, config.sentenceCount).join(" ") ||
+        article.excerpt ||
+        "文章已提取，但可用于继续摘要的文本不足。",
+      bullets:
+        bullets.length > 0 ? bullets : [article.excerpt || "这篇文章没有可用摘录。"],
+      method: "fallback",
+      summaryLength,
+      outputLanguage,
+    };
+  }
 
   return {
     summary:
@@ -85,12 +118,14 @@ function fallbackSummary(
         : [article.excerpt || "No excerpt was available for this article."],
     method: "fallback",
     summaryLength,
+    outputLanguage,
   };
 }
 
 async function summarizeWithDeepSeek(
   article: ArticleMetadata,
   summaryLength: SummaryLength,
+  outputLanguage: OutputLanguage,
 ): Promise<SummaryResult | null> {
   if (!deepseek) {
     return null;
@@ -106,6 +141,7 @@ async function summarizeWithDeepSeek(
     "Return strict JSON with keys summary and bullets.",
     config.promptSummary,
     config.promptBullets,
+    getOutputLanguageInstruction(outputLanguage),
     "Do not include markdown.",
     "",
     article.textContent.slice(0, 12000),
@@ -160,6 +196,7 @@ async function summarizeWithDeepSeek(
       bullets,
       method: "deepseek",
       summaryLength,
+      outputLanguage,
     };
   } catch {
     return null;
@@ -169,12 +206,21 @@ async function summarizeWithDeepSeek(
 export async function summarizeArticle(
   article: ArticleMetadata,
   summaryLength: SummaryLength = "medium",
+  outputLanguage: OutputLanguage = "en",
 ): Promise<SummaryResult> {
-  const modelResult = await summarizeWithDeepSeek(article, summaryLength);
-  return modelResult ?? fallbackSummary(article, summaryLength);
+  const modelResult = await summarizeWithDeepSeek(
+    article,
+    summaryLength,
+    outputLanguage,
+  );
+  return modelResult ?? fallbackSummary(article, summaryLength, outputLanguage);
 }
 
-function fallbackAnswer(article: ArticleMetadata, question: string): {
+function fallbackAnswer(
+  article: ArticleMetadata,
+  question: string,
+  outputLanguage: OutputLanguage,
+): {
   answer: string;
   method: SummaryMethod;
 } {
@@ -183,6 +229,17 @@ function fallbackAnswer(article: ArticleMetadata, question: string): {
     (item) => item.length >= 20,
   );
   const joined = candidates.slice(0, 2).join(" ");
+
+  if (outputLanguage === "zh") {
+    return {
+      answer: [
+        `问题：${question}`,
+        "",
+        joined || excerpt || "文章已提取成功，但没有足够文本支持可靠回答。",
+      ].join("\n"),
+      method: "fallback",
+    };
+  }
 
   return {
     answer: [
@@ -199,9 +256,10 @@ function fallbackAnswer(article: ArticleMetadata, question: string): {
 export async function answerArticleQuestion(
   article: ArticleMetadata,
   question: string,
+  outputLanguage: OutputLanguage = "en",
 ): Promise<{ answer: string; method: SummaryMethod }> {
   if (!deepseek) {
-    return fallbackAnswer(article, question);
+    return fallbackAnswer(article, question, outputLanguage);
   }
 
   const input = [
@@ -213,6 +271,7 @@ export async function answerArticleQuestion(
     "You are answering one question about a single article.",
     "Use only the provided article content.",
     "If the article does not support a claim, say that the answer is not supported by the article.",
+    getQuestionLanguageInstruction(outputLanguage),
     "Answer in plain text with 1 to 3 short paragraphs.",
     "",
     `Question: ${question}`,
@@ -242,7 +301,7 @@ export async function answerArticleQuestion(
     const answer = response.choices[0]?.message?.content?.trim();
 
     if (!answer) {
-      return fallbackAnswer(article, question);
+      return fallbackAnswer(article, question, outputLanguage);
     }
 
     return {
@@ -250,6 +309,6 @@ export async function answerArticleQuestion(
       method: "deepseek",
     };
   } catch {
-    return fallbackAnswer(article, question);
+    return fallbackAnswer(article, question, outputLanguage);
   }
 }

@@ -7,15 +7,24 @@ export type ExtractErrorCode =
 
 export type SummaryMethod = "deepseek" | "fallback";
 export type SummaryLength = "short" | "medium" | "long";
+export type OutputLanguage = "zh" | "en";
 
 export interface ExtractRequest {
   url: string;
   summaryLength?: SummaryLength;
+  outputLanguage?: OutputLanguage;
 }
 
 export interface AskArticleRequest {
   article: ArticleMetadata;
   question: string;
+  outputLanguage?: OutputLanguage;
+}
+
+export interface ResummarizeRequest {
+  article: ArticleMetadata;
+  summaryLength?: SummaryLength;
+  outputLanguage?: OutputLanguage;
 }
 
 export interface ArticleMetadata {
@@ -37,6 +46,7 @@ export interface ExtractSuccessResponse {
     bullets: string[];
     method: SummaryMethod;
     summaryLength: SummaryLength;
+    outputLanguage: OutputLanguage;
   };
 }
 

@@ -21,6 +21,7 @@ const article: ExtractSuccessResponse["data"] = {
   bullets: ["Point one", "Point two"],
   method: "fallback",
   summaryLength: "medium",
+  outputLanguage: "en",
 };
 
 describe("exporters", () => {

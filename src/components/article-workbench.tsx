@@ -5,7 +5,12 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import { ResultCard } from "@/components/result-card";
 import { UrlForm } from "@/components/url-form";
 import { localeDateMap, localeLabels, uiText, type Locale } from "@/lib/i18n";
-import type { ExtractResponse, HistoryEntry, SummaryLength } from "@/types/extract";
+import type {
+  ExtractResponse,
+  HistoryEntry,
+  OutputLanguage,
+  SummaryLength,
+} from "@/types/extract";
 
 const STORAGE_KEY = "web-article-assistant-history";
 const HISTORY_LIMIT = 8;
@@ -58,6 +63,10 @@ function writeHistorySnapshot(history: HistoryEntry[]) {
   window.dispatchEvent(new Event(HISTORY_UPDATED_EVENT));
 }
 
+function normalizeOutputLanguage(value: string | null | undefined): OutputLanguage {
+  return value === "zh" ? "zh" : "en";
+}
+
 export function ArticleWorkbench() {
   const [locale, setLocale] = useState<Locale>("zh");
   const [url, setUrl] = useState("");
@@ -101,7 +110,26 @@ export function ArticleWorkbench() {
     writeHistorySnapshot([entry, ...withoutSameUrl].slice(0, HISTORY_LIMIT));
   }
 
+  async function handleResummarized(nextResult: ExtractResponse) {
+    setResult(nextResult);
+
+    if (!nextResult.ok) {
+      return;
+    }
+
+    const updatedHistory = historyItems.map((item) =>
+      item.article.url === nextResult.data.url
+        ? { ...item, article: nextResult.data }
+        : item,
+    );
+
+    writeHistorySnapshot(updatedHistory);
+  }
+
   const hasHistory = historyItems.length > 0;
+  const resultLanguage = result?.ok
+    ? normalizeOutputLanguage(result.data.outputLanguage)
+    : null;
 
   return (
     <section className="space-y-8">
@@ -243,7 +271,13 @@ export function ArticleWorkbench() {
           </div>
         </div>
 
-        <ResultCard locale={locale} result={result} />
+        <ResultCard
+          locale={locale}
+          result={result}
+          summaryLength={summaryLength}
+          shouldSuggestResync={Boolean(result?.ok && resultLanguage !== locale)}
+          onResummarized={handleResummarized}
+        />
       </section>
     </section>
   );

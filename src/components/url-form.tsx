@@ -40,7 +40,7 @@ export function UrlForm({
         headers: {
           "content-type": "application/json",
         },
-        body: JSON.stringify({ url, summaryLength }),
+        body: JSON.stringify({ url, summaryLength, outputLanguage: locale }),
       });
 
       const result = (await response.json()) as ExtractResponse;

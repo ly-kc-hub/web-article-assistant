@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { answerArticleQuestion } from "@/lib/summarizer";
-import type { AskArticleRequest, AskArticleResponse } from "@/types/extract";
+import type { AskArticleRequest, AskArticleResponse, OutputLanguage } from "@/types/extract";
 
 export const runtime = "nodejs";
+
+function normalizeOutputLanguage(value: string | undefined): OutputLanguage {
+  return value === "zh" ? "zh" : "en";
+}
 
 export async function POST(request: Request) {
   let body: AskArticleRequest;
@@ -37,7 +41,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const answer = await answerArticleQuestion(body.article, body.question.trim());
+    const answer = await answerArticleQuestion(
+      body.article,
+      body.question.trim(),
+      normalizeOutputLanguage(body.outputLanguage),
+    );
 
     return NextResponse.json<AskArticleResponse>({
       ok: true,

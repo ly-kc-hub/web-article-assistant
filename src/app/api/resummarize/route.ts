@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { extractArticle, ExtractorError } from "@/lib/extractor";
 import { summarizeArticle } from "@/lib/summarizer";
-import { normalizeUrl } from "@/lib/validators";
 import type {
-  ExtractRequest,
   ExtractResponse,
   OutputLanguage,
+  ResummarizeRequest,
   SummaryLength,
 } from "@/types/extract";
 
@@ -25,10 +23,10 @@ function normalizeOutputLanguage(value: string | undefined): OutputLanguage {
 }
 
 export async function POST(request: Request) {
-  let body: ExtractRequest;
+  let body: ResummarizeRequest;
 
   try {
-    body = (await request.json()) as ExtractRequest;
+    body = (await request.json()) as ResummarizeRequest;
   } catch {
     return NextResponse.json<ExtractResponse>(
       {
@@ -42,15 +40,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const normalizedUrl = normalizeUrl(body.url ?? "");
-
-  if (!normalizedUrl) {
+  if (!body.article?.textContent) {
     return NextResponse.json<ExtractResponse>(
       {
         ok: false,
         error: {
-          code: "INVALID_URL",
-          message: "Please provide a valid http or https URL.",
+          code: "INVALID_REQUEST",
+          message: "Article content is required.",
         },
       },
       { status: 400 },
@@ -58,9 +54,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const article = await extractArticle(normalizedUrl);
     const summary = await summarizeArticle(
-      article,
+      body.article,
       normalizeSummaryLength(body.summaryLength),
       normalizeOutputLanguage(body.outputLanguage),
     );
@@ -68,30 +63,17 @@ export async function POST(request: Request) {
     return NextResponse.json<ExtractResponse>({
       ok: true,
       data: {
-        ...article,
+        ...body.article,
         ...summary,
       },
     });
-  } catch (error) {
-    if (error instanceof ExtractorError) {
-      return NextResponse.json<ExtractResponse>(
-        {
-          ok: false,
-          error: {
-            code: error.code,
-            message: error.message,
-          },
-        },
-        { status: error.code === "FETCH_FAILED" ? 502 : 422 },
-      );
-    }
-
+  } catch {
     return NextResponse.json<ExtractResponse>(
       {
         ok: false,
         error: {
           code: "SUMMARIZATION_FAILED",
-          message: "The article was extracted, but summarization failed unexpectedly.",
+          message: "The article could not be re-summarized.",
         },
       },
       { status: 500 },
