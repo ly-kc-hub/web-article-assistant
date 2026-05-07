@@ -1,0 +1,166 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+import { ResultCard } from "@/components/result-card";
+import { UrlForm } from "@/components/url-form";
+import type { ExtractResponse, HistoryEntry } from "@/types/extract";
+
+const STORAGE_KEY = "web-article-assistant-history";
+const HISTORY_LIMIT = 8;
+const DEMO_URLS = [
+  "https://www.anthropic.com/news",
+  "https://www.anthropic.com/news/claude-is-a-space-to-think",
+  "https://www.microsoft.com/en-us/worklab/work-trend-index",
+  "https://blog.cloudflare.com/",
+  "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
+  "https://aws.amazon.com/blogs/machine-learning/",
+];
+
+export function ArticleWorkbench() {
+  const [url, setUrl] = useState("");
+  const [result, setResult] = useState<ExtractResponse | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>(() => {
+    if (typeof window === "undefined") {
+      return [];
+    }
+
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+
+      if (!raw) {
+        return [];
+      }
+
+      const parsed = JSON.parse(raw) as HistoryEntry[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  }, [history]);
+
+  function handleResult(nextResult: ExtractResponse | null) {
+    setResult(nextResult);
+  }
+
+  function handleSuccess(nextResult: ExtractResponse) {
+    if (!nextResult.ok) {
+      return;
+    }
+
+    const entry: HistoryEntry = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      savedAt: new Date().toISOString(),
+      article: nextResult.data,
+    };
+
+    setHistory((current) => {
+      const withoutSameUrl = current.filter(
+        (item) => item.article.url !== nextResult.data.url,
+      );
+      return [entry, ...withoutSameUrl].slice(0, HISTORY_LIMIT);
+    });
+  }
+
+  const hasHistory = history.length > 0;
+  const historyItems = useMemo(() => history, [history]);
+
+  return (
+    <section className="grid gap-6 xl:grid-cols-[400px_1fr]">
+      <div className="space-y-6">
+        <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-zinc-950">Extract article</h2>
+          <p className="mt-2 text-sm leading-7 text-zinc-600">
+            Paste one article URL to extract content, summarize it, export it, and ask follow-up questions.
+          </p>
+          <div className="mt-6">
+            <UrlForm
+              url={url}
+              onUrlChange={setUrl}
+              onResult={handleResult}
+              onSuccess={handleSuccess}
+            />
+          </div>
+          <div className="mt-5 rounded-2xl bg-zinc-50 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+              Suggested inputs
+            </p>
+            <ul className="mt-3 space-y-2 text-sm text-zinc-600">
+              <li>• Long-form blog posts and essays</li>
+              <li>• News analysis pages with visible article body</li>
+              <li>• JS-rendered article pages if Playwright is installed</li>
+            </ul>
+          </div>
+          <div className="mt-5 rounded-2xl border border-zinc-200 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+              Demo URLs verified in this environment
+            </p>
+            <div className="mt-3 space-y-2">
+              {DEMO_URLS.map((demoUrl) => (
+                <button
+                  key={demoUrl}
+                  type="button"
+                  onClick={() => setUrl(demoUrl)}
+                  className="block w-full rounded-xl bg-zinc-50 px-3 py-2 text-left text-xs text-zinc-600 transition hover:bg-zinc-100"
+                >
+                  {demoUrl}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-base font-semibold text-zinc-950">Recent history</h3>
+            {hasHistory ? (
+              <button
+                type="button"
+                onClick={() => setHistory([])}
+                className="text-xs font-medium text-zinc-500 transition hover:text-zinc-900"
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+
+          {hasHistory ? (
+            <div className="mt-4 space-y-3">
+              {historyItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setUrl(item.article.url);
+                    setResult({ ok: true, data: item.article });
+                  }}
+                  className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-left transition hover:border-zinc-300 hover:bg-zinc-50"
+                >
+                  <p className="line-clamp-2 text-sm font-medium text-zinc-900">
+                    {item.article.title}
+                  </p>
+                  <p className="mt-1 line-clamp-1 text-xs text-zinc-500">
+                    {item.article.siteName || item.article.url}
+                  </p>
+                  <p className="mt-2 text-xs text-zinc-400">
+                    {new Date(item.savedAt).toLocaleString()}
+                  </p>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+              No local history yet. Successful extractions are saved in this browser only.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <ResultCard result={result} />
+    </section>
+  );
+}
