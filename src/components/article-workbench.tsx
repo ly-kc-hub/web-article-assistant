@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 
 import { ResultCard } from "@/components/result-card";
 import { UrlForm } from "@/components/url-form";
@@ -8,6 +8,7 @@ import type { ExtractResponse, HistoryEntry } from "@/types/extract";
 
 const STORAGE_KEY = "web-article-assistant-history";
 const HISTORY_LIMIT = 8;
+const HISTORY_UPDATED_EVENT = "article-history-updated";
 const DEMO_URLS = [
   "https://www.anthropic.com/news",
   "https://www.anthropic.com/news/claude-is-a-space-to-think",
@@ -17,31 +18,62 @@ const DEMO_URLS = [
   "https://aws.amazon.com/blogs/machine-learning/",
 ];
 
+function readHistorySnapshot() {
+  if (typeof window === "undefined") {
+    return "[]";
+  }
+
+  return window.localStorage.getItem(STORAGE_KEY) ?? "[]";
+}
+
+function subscribeHistory(onStoreChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const handleStoreEvent = (event: Event) => {
+    if (event instanceof StorageEvent && event.key && event.key !== STORAGE_KEY) {
+      return;
+    }
+
+    onStoreChange();
+  };
+
+  window.addEventListener("storage", handleStoreEvent);
+  window.addEventListener(HISTORY_UPDATED_EVENT, handleStoreEvent);
+
+  return () => {
+    window.removeEventListener("storage", handleStoreEvent);
+    window.removeEventListener(HISTORY_UPDATED_EVENT, handleStoreEvent);
+  };
+}
+
+function writeHistorySnapshot(history: HistoryEntry[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  window.dispatchEvent(new Event(HISTORY_UPDATED_EVENT));
+}
+
 export function ArticleWorkbench() {
   const [url, setUrl] = useState("");
   const [result, setResult] = useState<ExtractResponse | null>(null);
-  const [history, setHistory] = useState<HistoryEntry[]>(() => {
-    if (typeof window === "undefined") {
-      return [];
-    }
+  const historySnapshot = useSyncExternalStore(
+    subscribeHistory,
+    readHistorySnapshot,
+    () => "[]",
+  );
 
+  const historyItems = useMemo(() => {
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-
-      if (!raw) {
-        return [];
-      }
-
-      const parsed = JSON.parse(raw) as HistoryEntry[];
+      const parsed = JSON.parse(historySnapshot) as HistoryEntry[];
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
     }
-  });
-
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-  }, [history]);
+  }, [historySnapshot]);
 
   function handleResult(nextResult: ExtractResponse | null) {
     setResult(nextResult);
@@ -58,16 +90,14 @@ export function ArticleWorkbench() {
       article: nextResult.data,
     };
 
-    setHistory((current) => {
-      const withoutSameUrl = current.filter(
-        (item) => item.article.url !== nextResult.data.url,
-      );
-      return [entry, ...withoutSameUrl].slice(0, HISTORY_LIMIT);
-    });
+    const withoutSameUrl = historyItems.filter(
+      (item) => item.article.url !== nextResult.data.url,
+    );
+
+    writeHistorySnapshot([entry, ...withoutSameUrl].slice(0, HISTORY_LIMIT));
   }
 
-  const hasHistory = history.length > 0;
-  const historyItems = useMemo(() => history, [history]);
+  const hasHistory = historyItems.length > 0;
 
   return (
     <section className="grid gap-6 xl:grid-cols-[400px_1fr]">
@@ -120,7 +150,7 @@ export function ArticleWorkbench() {
             {hasHistory ? (
               <button
                 type="button"
-                onClick={() => setHistory([])}
+                onClick={() => writeHistorySnapshot([])}
                 className="text-xs font-medium text-zinc-500 transition hover:text-zinc-900"
               >
                 Clear

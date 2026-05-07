@@ -5,7 +5,7 @@ export type ExtractErrorCode =
   | "SUMMARIZATION_FAILED"
   | "INVALID_REQUEST";
 
-export type SummaryMethod = "openai" | "fallback";
+export type SummaryMethod = "deepseek" | "fallback";
 
 export interface ExtractRequest {
   url: string;
